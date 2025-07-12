@@ -19,7 +19,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import UserManagement from '../admin/UserManagement';
 import AppointmentManagement from '../admin/AppointmentManagement';
 import FeedbackAnalytics from '../admin/FeedbackAnalytics';
-
+import AdvancedAnalytics from '../admin/AdvancedAnalytics';
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotification();
@@ -273,17 +273,7 @@ const AdminDashboard: React.FC = () => {
             } />
             <Route path="/users" element={<UserManagement />} />
             <Route path="/appointments" element={<AppointmentManagement />} />
-            <Route path="/analytics" element={
-              <div className="p-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-8">Advanced Analytics</h1>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-                  <div className="text-center">
-                    <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Advanced analytics feature coming soon</p>
-                  </div>
-                </div>
-              </div>
-            } />
+            <Route path="/analytics" element={<AdvancedAnalytics />} />
             <Route path="/feedback" element={<FeedbackAnalytics />} />
             <Route path="/settings" element={
               <div className="p-8">
