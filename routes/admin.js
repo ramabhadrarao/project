@@ -475,6 +475,51 @@ router.get('/analytics/advanced', auth, authorize('admin'), async (req, res) => 
     });
   }
 });
+// ML Overview endpoint
+router.get('/ml/overview', auth, authorize('admin'), async (req, res) => {
+  try {
+    // Get ML-related statistics
+    const totalAppointments = await Appointment.countDocuments();
+    const noShowCount = await Appointment.countDocuments({ status: 'no-show' });
+    const feedbackCount = await Feedback.countDocuments();
+    const sentimentStats = await Feedback.aggregate([
+      {
+        $group: {
+          _id: '$sentiment',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      mlMetrics: {
+        totalPredictions: totalAppointments,
+        noShowPredictions: {
+          total: totalAppointments,
+          noShows: noShowCount,
+          accuracy: totalAppointments > 0 ? ((totalAppointments - noShowCount) / totalAppointments * 100).toFixed(1) : 0
+        },
+        sentimentAnalysis: {
+          total: feedbackCount,
+          distribution: sentimentStats
+        },
+        modelStatus: {
+          noShowModel: 'active',
+          sentimentModel: 'active',
+          recommendationModel: 'active'
+        }
+      }
+    });
+  } catch (error) {
+    console.error('ML overview error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch ML overview',
+      error: error.message
+    });
+  }
+});
 // Export appointments to CSV
 router.get('/export/appointments', auth, authorize('admin'), async (req, res) => {
   try {

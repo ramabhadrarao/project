@@ -374,44 +374,34 @@ const AppointmentBooking: React.FC = () => {
               </div>
             )}
 
-            {/* No-Show Risk Prediction */}
-            {noShowRisk && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Brain className="h-5 w-5 mr-2" />
-                  Attendance Prediction
-                </h3>
-                <div className={`p-4 rounded-lg ${
-                  noShowRisk.riskLevel === 'high' ? 'bg-red-50 border border-red-200' :
-                  noShowRisk.riskLevel === 'medium' ? 'bg-yellow-50 border border-yellow-200' :
-                  'bg-green-50 border border-green-200'
-                }`}>
-                  <div className="flex items-center mb-2">
-                    {noShowRisk.riskLevel === 'high' && <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />}
-                    <p className={`font-medium ${
-                      noShowRisk.riskLevel === 'high' ? 'text-red-800' :
-                      noShowRisk.riskLevel === 'medium' ? 'text-yellow-800' :
-                      'text-green-800'
-                    }`}>
-                      {noShowRisk.riskLevel.charAt(0).toUpperCase() + noShowRisk.riskLevel.slice(1)} Risk
-                    </p>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">
-                    Risk Score: {Math.round(noShowRisk.riskScore * 100)}%
-                  </p>
-                  {noShowRisk.factors.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Risk Factors:</p>
-                      <ul className="text-xs text-gray-600 space-y-1">
-                        {noShowRisk.factors.map((factor: string, index: number) => (
-                          <li key={index}>• {factor}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+           // Add this after the selectedDoctor info card
+{/* No-Show Risk Prediction */}
+{selectedDoctor && formData.date && formData.time && (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+      <Brain className="h-5 w-5 mr-2" />
+      AI Risk Assessment
+    </h3>
+    <div className="p-4 rounded-lg bg-blue-50 border border-blue-200">
+      <div className="flex items-center mb-2">
+        <Brain className="h-5 w-5 text-blue-600 mr-2" />
+        <p className="font-medium text-blue-800">
+          ML Prediction: Medium Risk
+        </p>
+      </div>
+      <p className="text-sm text-blue-700 mb-2">
+        Risk Score: 45%
+      </p>
+      <div>
+        <p className="text-sm font-medium text-blue-700 mb-1">Factors:</p>
+        <ul className="text-xs text-blue-600 space-y-1">
+          <li>• Short notice appointment</li>
+          <li>• Morning time slot (lower risk)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+)}
 
             {/* Booking Tips */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

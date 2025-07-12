@@ -10,7 +10,10 @@ import {
   Clock,
   TrendingUp,
   UserCheck,
-  MessageCircle
+  MessageCircle,
+  Download,
+  FileText,
+  Brain
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import axios from 'axios';
@@ -19,7 +22,10 @@ import { useNotification } from '../../contexts/NotificationContext';
 import UserManagement from '../admin/UserManagement';
 import AppointmentManagement from '../admin/AppointmentManagement';
 import FeedbackAnalytics from '../admin/FeedbackAnalytics';
+import ReportsExport from '../admin/ReportsExport';
 import AdvancedAnalytics from '../admin/AdvancedAnalytics';
+import MLOverview from '../admin/MLOverview';
+
 const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const { addNotification } = useNotification();
@@ -52,7 +58,9 @@ const AdminDashboard: React.FC = () => {
     { name: 'User Management', href: '/admin/users', icon: Users, current: location.pathname === '/admin/users' },
     { name: 'Appointments', href: '/admin/appointments', icon: Calendar, current: location.pathname === '/admin/appointments' },
     { name: 'Analytics', href: '/admin/analytics', icon: BarChart3, current: location.pathname === '/admin/analytics' },
+    { name: 'ML Overview', href: '/admin/ml', icon: Brain, current: location.pathname === '/admin/ml' },
     { name: 'Feedback', href: '/admin/feedback', icon: MessageCircle, current: location.pathname === '/admin/feedback' },
+    { name: 'Reports', href: '/admin/reports', icon: FileText, current: location.pathname === '/admin/reports' },
     { name: 'Settings', href: '/admin/settings', icon: Settings, current: location.pathname === '/admin/settings' }
   ];
 
@@ -171,15 +179,22 @@ const AdminDashboard: React.FC = () => {
                       <h2 className="text-xl font-semibold text-gray-900">Appointment Trends</h2>
                     </div>
                     <div className="p-6">
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={monthlyData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="appointments" fill="#3B82F6" />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      {monthlyData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={monthlyData}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" />
+                            <YAxis />
+                            <Tooltip />
+                            <Bar dataKey="appointments" fill="#3B82F6" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="text-center py-12">
+                          <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600">No trend data available</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -189,34 +204,44 @@ const AdminDashboard: React.FC = () => {
                       <h2 className="text-xl font-semibold text-gray-900">Feedback Sentiment</h2>
                     </div>
                     <div className="p-6">
-                      <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                          <Pie
-                            data={sentimentData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={100}
-                            dataKey="value"
-                          >
+                      {sentimentData.length > 0 ? (
+                        <>
+                          <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                              <Pie
+                                data={sentimentData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={100}
+                                dataKey="value"
+                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                              >
+                                {sentimentData.map((entry: any, index: number) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="flex justify-center mt-4 space-x-4">
                             {sentimentData.map((entry: any, index: number) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
+                              <div key={index} className="flex items-center">
+                                <div
+                                  className="w-3 h-3 rounded-full mr-2"
+                                  style={{ backgroundColor: entry.color }}
+                                ></div>
+                                <span className="text-sm text-gray-600 capitalize">{entry.name}</span>
+                              </div>
                             ))}
-                          </Pie>
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="flex justify-center mt-4 space-x-4">
-                        {sentimentData.map((entry: any, index: number) => (
-                          <div key={index} className="flex items-center">
-                            <div
-                              className="w-3 h-3 rounded-full mr-2"
-                              style={{ backgroundColor: entry.color }}
-                            ></div>
-                            <span className="text-sm text-gray-600 capitalize">{entry.name}</span>
                           </div>
-                        ))}
-                      </div>
+                        </>
+                      ) : (
+                        <div className="text-center py-12">
+                          <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <p className="text-gray-600">No sentiment data available</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -274,7 +299,9 @@ const AdminDashboard: React.FC = () => {
             <Route path="/users" element={<UserManagement />} />
             <Route path="/appointments" element={<AppointmentManagement />} />
             <Route path="/analytics" element={<AdvancedAnalytics />} />
+            <Route path="/ml" element={<MLOverview />} />
             <Route path="/feedback" element={<FeedbackAnalytics />} />
+            <Route path="/reports" element={<ReportsExport />} />
             <Route path="/settings" element={
               <div className="p-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-8">System Settings</h1>
