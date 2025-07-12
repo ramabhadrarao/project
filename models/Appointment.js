@@ -92,15 +92,21 @@ appointmentSchema.virtual('formattedDateTime').get(function() {
   return `${this.date.toDateString()} at ${this.time}`;
 });
 
-// Pre-save middleware for validation
+// Pre-save middleware for validation (modified to allow seeding)
 appointmentSchema.pre('save', function(next) {
-  // Ensure appointment is not in the past
-  const appointmentDateTime = new Date(this.date);
-  appointmentDateTime.setHours(parseInt(this.time.split(':')[0]));
-  appointmentDateTime.setMinutes(parseInt(this.time.split(':')[1]));
+  // Skip past date validation if in seeding mode or if appointment is already completed/cancelled
+  const isSeeding = process.env.NODE_ENV === 'development' && process.env.SEEDING === 'true';
+  const isHistoricalAppointment = ['completed', 'cancelled', 'no-show'].includes(this.status);
   
-  if (appointmentDateTime < new Date() && this.isNew) {
-    return next(new Error('Cannot schedule appointment in the past'));
+  if (!isSeeding && !isHistoricalAppointment && this.isNew) {
+    // Only validate future dates for new scheduled appointments
+    const appointmentDateTime = new Date(this.date);
+    appointmentDateTime.setHours(parseInt(this.time.split(':')[0]));
+    appointmentDateTime.setMinutes(parseInt(this.time.split(':')[1]));
+    
+    if (appointmentDateTime < new Date()) {
+      return next(new Error('Cannot schedule appointment in the past'));
+    }
   }
   
   next();

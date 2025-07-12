@@ -8,7 +8,8 @@ import {
   Activity,
   TrendingUp,
   MessageCircle,
-  FileText
+  FileText,
+  Stethoscope
 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,9 +26,12 @@ const DoctorDashboard: React.FC = () => {
     todayAppointments: 0,
     totalPatients: 0,
     averageRating: 0,
-    completedAppointments: 0
+    completedAppointments: 0,
+    scheduledAppointments: 0,
+    totalFeedbacks: 0
   });
   const [todaySchedule, setTodaySchedule] = useState([]);
+  const [recentPatients, setRecentPatients] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,26 +42,54 @@ const DoctorDashboard: React.FC = () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      const [appointmentsRes, feedbackRes] = await Promise.all([
-        axios.get('/appointments'),
-        axios.get(`/feedback/doctor/${user?.id}/stats`)
-      ]);
+      // Fetch appointments for this doctor
+      const appointmentsRes = await axios.get('/appointments', {
+        params: { doctorId: user?.id }
+      });
+
+      // Fetch feedback for this doctor
+      let feedbackRes;
+      try {
+        feedbackRes = await axios.get(`/feedback/doctor/${user?.id}/stats`);
+      } catch (error) {
+        console.log('Feedback endpoint not found, using alternative');
+        feedbackRes = { data: { stats: { averageRating: 0, totalFeedbacks: 0 } } };
+      }
 
       const appointments = appointmentsRes.data.appointments || [];
-      const todayAppts = appointments.filter((apt: any) => 
-        new Date(apt.date).toISOString().split('T')[0] === today && apt.status === 'scheduled'
-      );
+      
+      // Filter today's appointments
+      const todayAppts = appointments.filter((apt: any) => {
+        const aptDate = new Date(apt.date).toISOString().split('T')[0];
+        return aptDate === today && apt.status === 'scheduled';
+      });
 
-      const uniquePatients = new Set(appointments.map((apt: any) => apt.patientId._id));
+      // Get unique patients
+      const uniquePatients = new Set(appointments.map((apt: any) => apt.patientId?._id || apt.patientId));
+      
+      // Calculate stats
+      const completedCount = appointments.filter((apt: any) => apt.status === 'completed').length;
+      const scheduledCount = appointments.filter((apt: any) => apt.status === 'scheduled').length;
       
       setStats({
         todayAppointments: todayAppts.length,
         totalPatients: uniquePatients.size,
         averageRating: feedbackRes.data.stats?.averageRating || 0,
-        completedAppointments: appointments.filter((apt: any) => apt.status === 'completed').length
+        completedAppointments: completedCount,
+        scheduledAppointments: scheduledCount,
+        totalFeedbacks: feedbackRes.data.stats?.totalFeedbacks || 0
       });
 
       setTodaySchedule(todayAppts);
+
+      // Get recent patients (unique patients from recent appointments)
+      const recentAppointments = appointments
+        .filter((apt: any) => apt.status === 'completed')
+        .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5);
+      
+      setRecentPatients(recentAppointments);
+
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       addNotification({
@@ -78,8 +110,11 @@ const DoctorDashboard: React.FC = () => {
     { name: 'Reports', href: '/doctor/reports', icon: TrendingUp, current: location.pathname === '/doctor/reports' }
   ];
 
-  const StatCard = ({ title, value, icon: Icon, color, subtitle }: any) => (
-    <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+  const StatCard = ({ title, value, icon: Icon, color, subtitle, onClick }: any) => (
+    <div 
+      className={`bg-white rounded-xl shadow-sm p-6 border border-gray-100 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>
@@ -107,9 +142,14 @@ const DoctorDashboard: React.FC = () => {
         {/* Sidebar */}
         <div className="w-64 bg-white shadow-lg border-r border-gray-200">
           <div className="p-6">
-            <h2 className="text-xl font-bold text-gray-900">Doctor Portal</h2>
-            <p className="text-sm text-gray-600 mt-1">Dr. {user?.fullName}</p>
-            <p className="text-xs text-blue-600 mt-1">{user?.specialization}</p>
+            <div className="flex items-center mb-4">
+              <Stethoscope className="h-8 w-8 text-blue-600 mr-2" />
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Doctor Portal</h2>
+                <p className="text-sm text-gray-600">Dr. {user?.fullName}</p>
+                <p className="text-xs text-blue-600">{user?.specialization}</p>
+              </div>
+            </div>
           </div>
           
           <nav className="mt-6">
@@ -139,7 +179,7 @@ const DoctorDashboard: React.FC = () => {
               <div className="p-8">
                 <div className="mb-8">
                   <h1 className="text-3xl font-bold text-gray-900">Doctor Dashboard</h1>
-                  <p className="text-gray-600 mt-2">Manage your appointments and patient care</p>
+                  <p className="text-gray-600 mt-2">Welcome back, Dr. {user?.fullName}</p>
                 </div>
 
                 {/* Stats Grid */}
@@ -149,28 +189,31 @@ const DoctorDashboard: React.FC = () => {
                     value={stats.todayAppointments}
                     icon={Clock}
                     color="bg-blue-500"
-                    subtitle="Scheduled"
+                    subtitle={`${stats.scheduledAppointments} total scheduled`}
+                    onClick={() => window.location.href = '/doctor/appointments'}
                   />
                   <StatCard
                     title="Total Patients"
                     value={stats.totalPatients}
                     icon={Users}
                     color="bg-green-500"
-                    subtitle="All time"
+                    subtitle="Unique patients treated"
+                    onClick={() => window.location.href = '/doctor/patients'}
                   />
                   <StatCard
                     title="Average Rating"
                     value={stats.averageRating.toFixed(1)}
                     icon={Star}
                     color="bg-yellow-500"
-                    subtitle="Patient feedback"
+                    subtitle={`${stats.totalFeedbacks} reviews`}
+                    onClick={() => window.location.href = '/doctor/feedback'}
                   />
                   <StatCard
                     title="Completed"
                     value={stats.completedAppointments}
                     icon={Calendar}
                     color="bg-purple-500"
-                    subtitle="Appointments"
+                    subtitle="Total appointments"
                   />
                 </div>
 
@@ -178,13 +221,21 @@ const DoctorDashboard: React.FC = () => {
                   {/* Today's Schedule */}
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <div className="p-6 border-b border-gray-200">
-                      <h2 className="text-xl font-semibold text-gray-900">Today's Schedule</h2>
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-gray-900">Today's Schedule</h2>
+                        <Link 
+                          to="/doctor/appointments"
+                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        >
+                          View All
+                        </Link>
+                      </div>
                     </div>
                     <div className="p-6">
                       {todaySchedule.length > 0 ? (
                         <div className="space-y-4">
                           {todaySchedule.map((appointment: any) => (
-                            <div key={appointment._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                            <div key={appointment._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                               <div className="flex items-center space-x-4">
                                 <div className="flex-shrink-0">
                                   <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -193,16 +244,16 @@ const DoctorDashboard: React.FC = () => {
                                 </div>
                                 <div>
                                   <p className="text-sm font-medium text-gray-900">
-                                    {appointment.patientId?.fullName}
+                                    {appointment.patientId?.fullName || 'Patient Name'}
                                   </p>
-                                  <p className="text-sm text-gray-600">
+                                  <p className="text-sm text-gray-600 truncate max-w-xs">
                                     {appointment.symptoms}
                                   </p>
                                 </div>
                               </div>
                               <div className="text-right">
                                 <p className="text-sm font-medium text-gray-900">{appointment.time}</p>
-                                <p className="text-xs text-gray-500">{appointment.appointmentType}</p>
+                                <p className="text-xs text-gray-500 capitalize">{appointment.appointmentType}</p>
                               </div>
                             </div>
                           ))}
@@ -210,52 +261,104 @@ const DoctorDashboard: React.FC = () => {
                       ) : (
                         <div className="text-center py-12">
                           <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                          <p className="text-gray-600">No appointments scheduled for today</p>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">No appointments today</h3>
+                          <p className="text-gray-600">Enjoy your free time!</p>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Quick Actions */}
+                  {/* Recent Patients */}
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                     <div className="p-6 border-b border-gray-200">
-                      <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
-                    </div>
-                    <div className="p-6">
-                      <div className="space-y-4">
-                        <Link
-                          to="/doctor/appointments"
-                          className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-semibold text-gray-900">Recent Patients</h2>
+                        <Link 
+                          to="/doctor/patients"
+                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                         >
-                          <Calendar className="h-8 w-8 text-blue-600 mr-4" />
-                          <div>
-                            <p className="font-medium text-gray-900">View All Appointments</p>
-                            <p className="text-sm text-gray-600">Manage your schedule</p>
-                          </div>
-                        </Link>
-
-                        <Link
-                          to="/doctor/feedback"
-                          className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-                        >
-                          <MessageCircle className="h-8 w-8 text-green-600 mr-4" />
-                          <div>
-                            <p className="font-medium text-gray-900">Patient Feedback</p>
-                            <p className="text-sm text-gray-600">View ratings and reviews</p>
-                          </div>
-                        </Link>
-
-                        <Link
-                          to="/doctor/reports"
-                          className="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
-                        >
-                          <TrendingUp className="h-8 w-8 text-purple-600 mr-4" />
-                          <div>
-                            <p className="font-medium text-gray-900">Analytics</p>
-                            <p className="text-sm text-gray-600">Performance insights</p>
-                          </div>
+                          View All
                         </Link>
                       </div>
+                    </div>
+                    <div className="p-6">
+                      {recentPatients.length > 0 ? (
+                        <div className="space-y-4">
+                          {recentPatients.map((appointment: any) => (
+                            <div key={appointment._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                              <div className="flex items-center space-x-4">
+                                <div className="flex-shrink-0">
+                                  <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                                    <Users className="h-5 w-5 text-green-600" />
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {appointment.patientId?.fullName || 'Patient Name'}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    Last visit: {new Date(appointment.date).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                  {appointment.status}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-12">
+                          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">No recent patients</h3>
+                          <p className="text-gray-600">Patient history will appear here</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100">
+                  <div className="p-6 border-b border-gray-200">
+                    <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
+                  </div>
+                  <div className="p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Link
+                        to="/doctor/appointments"
+                        className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <Calendar className="h-8 w-8 text-blue-600 mr-4" />
+                        <div>
+                          <p className="font-medium text-gray-900">Manage Appointments</p>
+                          <p className="text-sm text-gray-600">View and update appointments</p>
+                        </div>
+                      </Link>
+
+                      <Link
+                        to="/doctor/patients"
+                        className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                      >
+                        <Users className="h-8 w-8 text-green-600 mr-4" />
+                        <div>
+                          <p className="font-medium text-gray-900">Search Patients</p>
+                          <p className="text-sm text-gray-600">Find patient records</p>
+                        </div>
+                      </Link>
+
+                      <Link
+                        to="/doctor/feedback"
+                        className="flex items-center p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors"
+                      >
+                        <Star className="h-8 w-8 text-yellow-600 mr-4" />
+                        <div>
+                          <p className="font-medium text-gray-900">View Feedback</p>
+                          <p className="text-sm text-gray-600">Patient reviews & ratings</p>
+                        </div>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -275,7 +378,8 @@ const DoctorDashboard: React.FC = () => {
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
                   <div className="text-center">
                     <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Analytics and reports feature coming soon</p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Reports Coming Soon</h3>
+                    <p className="text-gray-600">Analytics and reports feature will be available soon</p>
                   </div>
                 </div>
               </div>
