@@ -63,7 +63,7 @@ const createAppointment = async (req, res) => {
 
 const getAppointments = async (req, res) => {
   try {
-    const { status, date, doctorId } = req.query;
+    const { status, date, doctorId, patientId } = req.query;
     const userId = req.user.id;
     const userRole = req.user.role;
 
@@ -80,6 +80,7 @@ const getAppointments = async (req, res) => {
     if (status) filter.status = status;
     if (date) filter.date = new Date(date);
     if (doctorId && userRole === 'admin') filter.doctorId = doctorId;
+    if (patientId && (userRole === 'admin' || userRole === 'doctor')) filter.patientId = patientId;
 
     const appointments = await Appointment.find(filter)
       .populate('patientId', 'fullName email phone gender age')
@@ -225,6 +226,69 @@ const updateAppointment = async (req, res) => {
   }
 };
 
+// New function for updating medical records
+const updateMedicalRecord = async (req, res) => {
+  try {
+    const { diagnosis, notes, prescription } = req.body;
+    const appointmentId = req.params.id;
+    const userId = req.user.id;
+
+    const appointment = await Appointment.findById(appointmentId);
+
+    if (!appointment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Appointment not found'
+      });
+    }
+
+    // Only allow doctors to update medical records for their appointments
+    if (req.user.role === 'doctor' && appointment.doctorId.toString() !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only update records for your own appointments'
+      });
+    }
+
+    // Only allow updates for completed appointments
+    if (appointment.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only update medical records for completed appointments'
+      });
+    }
+
+    // Update medical record fields
+    const updateData = { 
+      updatedAt: new Date() 
+    };
+    
+    if (diagnosis) updateData.diagnosis = diagnosis;
+    if (notes) updateData.notes = notes;
+    if (prescription) updateData.prescription = prescription;
+
+    const updatedAppointment = await Appointment.findByIdAndUpdate(
+      appointmentId,
+      updateData,
+      { new: true, runValidators: true }
+    ).populate('patientId', 'fullName email phone')
+     .populate('doctorId', 'fullName specialization department');
+
+    res.json({
+      success: true,
+      message: 'Medical record updated successfully',
+      appointment: updatedAppointment
+    });
+  } catch (error) {
+    console.error('Update medical record error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update medical record',
+      error: error.message
+    });
+  }
+};
+
 const cancelAppointment = async (req, res) => {
   try {
     const appointmentId = req.params.id;
@@ -342,6 +406,7 @@ module.exports = {
   getAppointments,
   getAppointmentById,
   updateAppointment,
+  updateMedicalRecord,
   cancelAppointment,
   getDoctorAvailability
 };

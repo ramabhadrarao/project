@@ -1,6 +1,26 @@
 const Feedback = require('../models/Feedback');
 const Appointment = require('../models/Appointment');
-const mlService = require('../services/mlService');
+const User = require('../models/User');
+const mongoose = require('mongoose');
+
+// Simple sentiment analysis function
+const analyzeSentiment = (comment) => {
+  const positiveWords = ['good', 'great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'helpful', 'professional', 'caring', 'friendly'];
+  const negativeWords = ['bad', 'terrible', 'awful', 'horrible', 'poor', 'rude', 'unprofessional', 'disappointing', 'worst'];
+  
+  const words = comment.toLowerCase().split(' ');
+  let positiveCount = 0;
+  let negativeCount = 0;
+  
+  words.forEach(word => {
+    if (positiveWords.some(pos => word.includes(pos))) positiveCount++;
+    if (negativeWords.some(neg => word.includes(neg))) negativeCount++;
+  });
+  
+  if (positiveCount > negativeCount) return { sentiment: 'positive', score: 0.7 };
+  if (negativeCount > positiveCount) return { sentiment: 'negative', score: -0.7 };
+  return { sentiment: 'neutral', score: 0.1 };
+};
 
 const createFeedback = async (req, res) => {
   try {
@@ -31,7 +51,7 @@ const createFeedback = async (req, res) => {
     }
 
     // Analyze sentiment
-    const sentimentAnalysis = await mlService.analyzeSentiment(comment);
+    const sentimentAnalysis = analyzeSentiment(comment);
 
     // Create feedback
     const feedback = await Feedback.create({
@@ -121,7 +141,7 @@ const getDoctorFeedbackStats = async (req, res) => {
 
     // Get feedback statistics
     const stats = await Feedback.aggregate([
-      { $match: { doctorId: mongoose.Types.ObjectId(doctorId) } },
+      { $match: { doctorId: new mongoose.Types.ObjectId(doctorId) } },
       {
         $group: {
           _id: null,
@@ -139,7 +159,7 @@ const getDoctorFeedbackStats = async (req, res) => {
 
     // Get sentiment distribution
     const sentimentStats = await Feedback.aggregate([
-      { $match: { doctorId: mongoose.Types.ObjectId(doctorId) } },
+      { $match: { doctorId: new mongoose.Types.ObjectId(doctorId) } },
       {
         $group: {
           _id: '$sentiment',
@@ -150,7 +170,7 @@ const getDoctorFeedbackStats = async (req, res) => {
 
     // Get rating distribution
     const ratingStats = await Feedback.aggregate([
-      { $match: { doctorId: mongoose.Types.ObjectId(doctorId) } },
+      { $match: { doctorId: new mongoose.Types.ObjectId(doctorId) } },
       {
         $group: {
           _id: '$rating',

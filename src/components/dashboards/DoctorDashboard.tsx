@@ -43,20 +43,19 @@ const DoctorDashboard: React.FC = () => {
       const today = new Date().toISOString().split('T')[0];
       
       // Fetch appointments for this doctor
-      const appointmentsRes = await axios.get('/appointments', {
-        params: { doctorId: user?.id }
-      });
+      const appointmentsRes = await axios.get('/appointments');
 
       // Fetch feedback for this doctor
       let feedbackRes;
       try {
-        feedbackRes = await axios.get(`/feedback/doctor/${user?.id}/stats`);
+        feedbackRes = await axios.get('/feedback');
       } catch (error) {
-        console.log('Feedback endpoint not found, using alternative');
-        feedbackRes = { data: { stats: { averageRating: 0, totalFeedbacks: 0 } } };
+        console.log('Feedback endpoint error, using fallback');
+        feedbackRes = { data: { feedbacks: [] } };
       }
 
       const appointments = appointmentsRes.data.appointments || [];
+      const feedbacks = feedbackRes.data.feedbacks || [];
       
       // Filter today's appointments
       const todayAppts = appointments.filter((apt: any) => {
@@ -71,13 +70,18 @@ const DoctorDashboard: React.FC = () => {
       const completedCount = appointments.filter((apt: any) => apt.status === 'completed').length;
       const scheduledCount = appointments.filter((apt: any) => apt.status === 'scheduled').length;
       
+      // Calculate average rating from feedbacks
+      const averageRating = feedbacks.length > 0 
+        ? feedbacks.reduce((sum: number, fb: any) => sum + fb.rating, 0) / feedbacks.length 
+        : 0;
+      
       setStats({
         todayAppointments: todayAppts.length,
         totalPatients: uniquePatients.size,
-        averageRating: feedbackRes.data.stats?.averageRating || 0,
+        averageRating: averageRating,
         completedAppointments: completedCount,
         scheduledAppointments: scheduledCount,
-        totalFeedbacks: feedbackRes.data.stats?.totalFeedbacks || 0
+        totalFeedbacks: feedbacks.length
       });
 
       setTodaySchedule(todayAppts);
@@ -106,7 +110,7 @@ const DoctorDashboard: React.FC = () => {
     { name: 'Overview', href: '/doctor', icon: Activity, current: location.pathname === '/doctor' },
     { name: 'Appointments', href: '/doctor/appointments', icon: Calendar, current: location.pathname === '/doctor/appointments' },
     { name: 'Patients', href: '/doctor/patients', icon: Users, current: location.pathname === '/doctor/patients' },
-    { name: 'Feedback', href: '/doctor/feedback', icon: Star, current: location.pathname === '/doctor/feedback' },
+    { name: 'Feedback Analytics', href: '/doctor/feedback', icon: Star, current: location.pathname === '/doctor/feedback' },
     { name: 'Reports', href: '/doctor/reports', icon: TrendingUp, current: location.pathname === '/doctor/reports' }
   ];
 
@@ -190,7 +194,6 @@ const DoctorDashboard: React.FC = () => {
                     icon={Clock}
                     color="bg-blue-500"
                     subtitle={`${stats.scheduledAppointments} total scheduled`}
-                    onClick={() => window.location.href = '/doctor/appointments'}
                   />
                   <StatCard
                     title="Total Patients"
@@ -198,7 +201,6 @@ const DoctorDashboard: React.FC = () => {
                     icon={Users}
                     color="bg-green-500"
                     subtitle="Unique patients treated"
-                    onClick={() => window.location.href = '/doctor/patients'}
                   />
                   <StatCard
                     title="Average Rating"
@@ -206,7 +208,6 @@ const DoctorDashboard: React.FC = () => {
                     icon={Star}
                     color="bg-yellow-500"
                     subtitle={`${stats.totalFeedbacks} reviews`}
-                    onClick={() => window.location.href = '/doctor/feedback'}
                   />
                   <StatCard
                     title="Completed"

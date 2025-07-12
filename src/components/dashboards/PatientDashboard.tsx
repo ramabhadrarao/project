@@ -17,6 +17,7 @@ import { useNotification } from '../../contexts/NotificationContext';
 import AppointmentBooking from '../appointments/AppointmentBooking';
 import AppointmentList from '../appointments/AppointmentList';
 import FeedbackForm from '../feedback/FeedbackForm';
+import PatientMedicalRecords from '../patients/PatientMedicalRecords';
 
 const PatientDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -65,8 +66,8 @@ const PatientDashboard: React.FC = () => {
     { name: 'Overview', href: '/patient', icon: Activity, current: location.pathname === '/patient' },
     { name: 'Book Appointment', href: '/patient/book', icon: Plus, current: location.pathname === '/patient/book' },
     { name: 'My Appointments', href: '/patient/appointments', icon: Calendar, current: location.pathname === '/patient/appointments' },
-    { name: 'Feedback', href: '/patient/feedback', icon: MessageCircle, current: location.pathname === '/patient/feedback' },
-    { name: 'Medical Records', href: '/patient/records', icon: FileText, current: location.pathname === '/patient/records' }
+    { name: 'Medical Records', href: '/patient/records', icon: FileText, current: location.pathname === '/patient/records' },
+    { name: 'Feedback', href: '/patient/feedback', icon: MessageCircle, current: location.pathname === '/patient/feedback' }
   ];
 
   const StatCard = ({ title, value, icon: Icon, color }: any) => (
@@ -208,18 +209,8 @@ const PatientDashboard: React.FC = () => {
             } />
             <Route path="/book" element={<AppointmentBooking />} />
             <Route path="/appointments" element={<AppointmentList userRole="patient" />} />
+            <Route path="/records" element={<PatientMedicalRecords />} />
             <Route path="/feedback" element={<FeedbackForm />} />
-            <Route path="/records" element={
-              <div className="p-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-8">Medical Records</h1>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-                  <div className="text-center">
-                    <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">Medical records feature coming soon</p>
-                  </div>
-                </div>
-              </div>
-            } />
           </Routes>
         </div>
       </div>

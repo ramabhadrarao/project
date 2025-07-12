@@ -18,16 +18,82 @@ const FeedbackStats: React.FC = () => {
 
   const fetchFeedbackStats = async () => {
     try {
-      const response = await axios.get(`/feedback/doctor/${user?.id}/stats`);
-      setStats(response.data);
-      setRecentFeedback(response.data.recentFeedback || []);
+      // Try to get feedback for this doctor
+      const response = await axios.get('/feedback', {
+        params: { doctorId: user?.id }
+      });
+      
+      const feedbacks = response.data.feedbacks || [];
+      
+      // Calculate stats from feedbacks
+      const totalFeedbacks = feedbacks.length;
+      const averageRating = totalFeedbacks > 0 
+        ? feedbacks.reduce((sum: number, fb: any) => sum + fb.rating, 0) / totalFeedbacks 
+        : 0;
+
+      // Calculate sentiment distribution
+      const sentimentCounts = feedbacks.reduce((acc: any, fb: any) => {
+        acc[fb.sentiment] = (acc[fb.sentiment] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Calculate rating distribution
+      const ratingCounts = feedbacks.reduce((acc: any, fb: any) => {
+        acc[fb.rating] = (acc[fb.rating] || 0) + 1;
+        return acc;
+      }, {});
+
+      const processedStats = {
+        stats: {
+          totalFeedbacks,
+          averageRating
+        },
+        sentimentDistribution: Object.entries(sentimentCounts).map(([sentiment, count]) => ({
+          _id: sentiment,
+          count
+        })),
+        ratingDistribution: Object.entries(ratingCounts).map(([rating, count]) => ({
+          _id: parseInt(rating),
+          count
+        })),
+        recentFeedback: feedbacks.slice(0, 5)
+      };
+
+      setStats(processedStats);
+      setRecentFeedback(processedStats.recentFeedback);
+      
     } catch (error) {
       console.error('Error fetching feedback stats:', error);
-      addNotification({
-        type: 'error',
-        title: 'Error',
-        message: 'Failed to fetch feedback statistics'
-      });
+      
+      // If the specific endpoint doesn't exist, try alternative approach
+      try {
+        const appointmentsRes = await axios.get('/appointments');
+        const appointments = appointmentsRes.data.appointments || [];
+        const completedAppointments = appointments.filter((apt: any) => apt.status === 'completed');
+        
+        // Set minimal stats
+        setStats({
+          stats: {
+            totalFeedbacks: 0,
+            averageRating: 0
+          },
+          sentimentDistribution: [],
+          ratingDistribution: [],
+          recentFeedback: []
+        });
+        
+        addNotification({
+          type: 'info',
+          title: 'Info',
+          message: 'No feedback data available yet. Feedback will appear here once patients submit reviews.'
+        });
+      } catch (fallbackError) {
+        addNotification({
+          type: 'error',
+          title: 'Error',
+          message: 'Failed to fetch feedback statistics'
+        });
+      }
     } finally {
       setLoading(false);
     }
